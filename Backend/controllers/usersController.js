@@ -2,6 +2,7 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
+const ContentHistory = require("../models/ContentHistory");
 //----------Registration--------------------------------------------------------
 const register = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body;
@@ -42,41 +43,80 @@ const register = asyncHandler(async (req, res) => {
   });
 });
 //------------Login-------------------------------------------------------------
+// const login = asyncHandler(async (req, res) => {
+//   const { email, password } = req.body;
+//   //check for user email
+//   const user = await User.findOne({ email });
+//   if (!user) {
+//     res.status(401);
+//     throw new Error("invalid email or password");
+//   }
+//   //check for user email
+//   const isMatch = await bcrypt.compare(password, user?.password);
+//   if (!isMatch) {
+//     res.status(401);
+//     throw new Error("invalid email or password");
+//   }
+//   //Generate token(jwt)
+//   const token = jwt.sign({ id: user?._id }, process.env.JWT_SECRET, {
+//     expiresIn: "3d",
+//   });
+
+//   //set the token into cookie (http only)
+//   res.cookie("token", token, {
+//     httpOnly: true,
+//     secure: process.env.NODE_ENV === "production",
+//     sameSite: "strict",
+//     maxAge: 24 * 60 * 60 * 1000,
+//   });
+//   //send the response
+//   res.json({
+//     status: "success",
+//     _id: user?._id,
+//     message: "login success",
+//     username: user?.username,
+//     email: user?.email,
+//   });
+// });
+
+//fixed
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  //check for user email
+
   const user = await User.findOne({ email });
   if (!user) {
     res.status(401);
-    throw new Error("invalid email or password");
+    throw new Error("Invalid email or password");
   }
-  //check for user email
-  const isMatch = await bcrypt.compare(password, user?.password);
+
+  const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     res.status(401);
-    throw new Error("invalid email or password");
+    throw new Error("Invalid email or password");
   }
-  //Generate token(jwt)
-  const token = jwt.sign({ id: user?._id }, process.env.JWT_SECRET, {
+
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: "3d",
   });
 
-  //set the token into cookie (http only)
   res.cookie("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 24 * 60 * 60 * 1000,
   });
-  //send the response
+
   res.json({
     status: "success",
-    _id: user?._id,
-    message: "login success",
-    username: user?.username,
-    email: user?.email,
+    _id: user._id,
+    message: "Login success",
+    username: user.username,
+    email: user.email,
+    token,
   });
 });
+
+
 //------------Logout------------------------------------------------------------
 const logout = asyncHandler(async (req, res) => {
   res.cookie("token", "", { maxAge: 1 });
@@ -87,7 +127,7 @@ const userProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req?.user?.id)
     .select("-password")
     .populate("payments")
-    .populate([{ path: "contentHistory", model: "ContentHistory" }]);
+    .populate([{ path: "history", model: "ContentHistory" }]);
   if (user) {
     res.status(200).json({
       status: "success",
@@ -98,6 +138,7 @@ const userProfile = asyncHandler(async (req, res) => {
     throw new Error("user not found");
   }
 });
+
 //------Check user Auth Status--------
 const checkAuth = asyncHandler(async (req, res) => {
   const decoded = jwt.verify(req.cookies.token, process.env.JWT_SECRET);
